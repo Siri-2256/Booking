@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PizzaDash - Warangal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        label.selected, .option-card.selected { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2); }
+        .summary-item, .cart-item, .tracking-status { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .timeline-item.active .timeline-dot { background-color: #ef4444; }
+        .timeline-item.active .timeline-content { font-weight: 700; color: #1f2937; }
+        .timeline-line { width: 2px; height: 100%; background-color: #d1d5db; position: absolute; left: 0.6rem; top: 1rem; }
+        .gemini-suggestion-box { animation: fadeIn 0.3s ease-out; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #ef4444; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #share-modal, #location-modal { transition: opacity 0.3s ease; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <header class="bg-white shadow-md sticky top-0 z-20">
+        <div class="container mx-auto px-4 md:px-8 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                 <h1 class="text-3xl font-extrabold text-red-600 cursor-pointer" id="home-button">PizzaDash</h1>
+                 <div id="delivery-location" class="flex items-center gap-2 cursor-pointer text-sm text-gray-600 hover:text-red-600 ml-4">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <div>
+                        <span class="font-bold text-xs">Deliver To</span>
+                        <p id="location-text" class="font-semibold leading-tight">Hanamkonda</p>
+                    </div>
+                 </div>
+            </div>
+            <div class="flex-1 max-w-xl mx-4">
+                <div class="relative">
+                    <input type="text" id="search-bar" placeholder="Search restaurants or items in Warangal..." class="w-full bg-gray-100 border border-gray-200 rounded-lg py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-red-500">
+                    <svg class="w-5 h-5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+            </div>
+            <nav class="flex items-center gap-6 text-gray-700">
+                <a href="#" id="nav-home" class="hover:text-red-600 font-semibold">Home</a>
+                <a href="#" class="hover:text-red-600 font-semibold">Orders</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container mx-auto p-4 md:p-8">
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div id="main-content" class="lg:col-span-2"></div>
+            <div id="sidebar" class="lg:col-span-1">
+                <div class="bg-white p-6 rounded-2xl shadow-xl sticky top-28">
+                    <h2 class="text-2xl font-bold mb-4 border-b pb-3">Your Order</h2>
+                    <div id="order-from" class="text-sm text-gray-500 mb-2 font-semibold hidden"></div>
+                    <div id="cart-items" class="space-y-4 mb-4 max-h-72 overflow-y-auto no-scrollbar">
+                        <p id="empty-cart-message" class="text-gray-500 text-center py-10">Your cart is empty!</p>
+                    </div>
+                    <div id="bill-details" class="border-t pt-4 space-y-2 hidden">
+                        <button id="gemini-suggest-btn" class="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold py-2 rounded-lg mb-4 hover:from-purple-600 hover:to-indigo-700 transition-all shadow-md">✨ Complete My Meal</button>
+                        <div id="gemini-suggestion-container" class="mb-4"></div>
+                        <h3 class="font-bold text-md mt-2">Delivery Option</h3>
+                        <div id="delivery-options" class="grid grid-cols-2 gap-2 text-sm">
+                             <label class="option-card p-2 border rounded-lg cursor-pointer text-center" data-fee="80"><input type="radio" name="delivery" class="hidden"> 🚀 Priority<br>+₹80</label>
+                             <label class="option-card p-2 border rounded-lg cursor-pointer text-center selected" data-fee="40"><input type="radio" name="delivery" class="hidden" checked> ✅ Standard<br>+₹40</label>
+                        </div>
+                        <div class="flex justify-between text-sm text-gray-600 pt-2"><span>Item Total</span><span id="item-total">₹0</span></div>
+                        <div class="flex justify-between text-sm text-gray-600"><span>Delivery Fee</span><span id="delivery-fee">₹40</span></div>
+                        <div class="flex justify-between text-sm text-gray-600"><span>GST & Charges</span><span id="taxes">₹0</span></div>
+                         <h3 class="font-bold text-md pt-3">Payment Method</h3>
+                        <div id="payment-options" class="grid grid-cols-3 gap-2 text-sm">
+                             <label class="option-card p-2 border rounded-lg cursor-pointer text-center selected"><input type="radio" name="payment" class="hidden" checked> 💳 Card</label>
+                             <label class="option-card p-2 border rounded-lg cursor-pointer text-center"><input type="radio" name="payment" class="hidden"> 📲 UPI</label>
+                             <label class="option-card p-2 border rounded-lg cursor-pointer text-center"><input type="radio" name="payment" class="hidden"> 💵 COD</label>
+                        </div>
+                        <div class="border-t pt-4 mt-2">
+                            <div class="flex justify-between items-center text-lg font-bold"><span>To Pay:</span><span id="grand-total">₹0</span></div>
+                        </div>
+                    </div>
+                     <button id="place-order-button" class="w-full bg-red-600 text-white font-bold py-3 rounded-lg mt-6 hover:bg-red-700 shadow-lg shadow-red-500/50 disabled:bg-gray-400 disabled:shadow-none" disabled>Place Order</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="share-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md text-center transform transition-all scale-95 opacity-0" id="share-modal-content">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4">Share Your Order!</h3>
+            <div id="share-text-container" class="bg-gray-100 p-4 rounded-lg text-left mb-4 min-h-[100px]"></div>
+            <div class="flex gap-4">
+                <button id="copy-share-text-btn" class="w-full bg-green-500 text-white font-bold py-2 rounded-lg hover:bg-green-600">Copy Text</button>
+                <button id="close-share-modal-btn" class="w-full bg-gray-200 text-gray-700 font-bold py-2 rounded-lg hover:bg-gray-300">Close</button>
+            </div>
+        </div>
+    </div>
+    <div id="location-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md transform transition-all scale-95 opacity-0" id="location-modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-gray-800">Select Delivery Location</h3>
+                <button id="close-location-modal-btn" class="text-2xl font-bold text-gray-500 hover:text-gray-800">&times;</button>
+            </div>
+            <ul id="location-list" class="space-y-2 max-h-80 overflow-y-auto">
+                <!-- Locations will be populated by JS -->
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+    // --- DATA ---
+    const RESTAURANTS = [
+        {
+            id: 'dominos_hanmakonda', name: "Domino's Pizza", location: 'Nakkalagutta, Hanamkonda', rating: 4.2, coords: {x: 50, y: 150},
+            image: 'https://images.unsplash.com/photo-1593556485883-999815435922?q=80&w=400&auto=format&fit=crop',
+            menu: {
+                "Pizzas": [
+                    { id: 'dom_margherita', name: 'Margherita', description: 'Classic delight with mozzarella cheese.', price: 239, type: 'veg', img: 'https://images.unsplash.com/photo-1598021680133-eb2270512b14?q=80&w=400&auto=format&fit=crop', customizable: true },
+                    { id: 'dom_farmhouse', name: 'Farmhouse', description: 'Onion, capsicum, tomato & mushroom.', price: 459, type: 'veg', img: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?q=80&w=400&auto=format&fit=crop', customizable: true },
+                    { id: 'dom_peppy_paneer', name: 'Peppy Paneer', description: 'Flavorful paneer, capsicum, and red paprika.', price: 459, type: 'veg', img: 'https://images.unsplash.com/photo-1593508512255-86ab42a8e620?q=80&w=400&auto=format&fit=crop', customizable: true},
+                    { id: 'dom_pepperoni', name: 'Pepperoni', description: 'Classic favorite with spicy pepperoni.', price: 569, type: 'non-veg', img: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?q=80&w=400&auto=format&fit=crop', customizable: true },
+                    { id: 'dom_chicken_dominator', name: 'Chicken Dominator', description: 'Loaded with chicken tikka, sausage, and more.', price: 699, type: 'non-veg', img: 'https://images.unsplash.com/photo-1605633397125-20da17d59160?q=80&w=400&auto=format&fit=crop', customizable: true },
+                ],
+                "Sides": [
+                    { id: 'dom_garlic_bread', name: 'Garlic Breadsticks', description: 'Buttery, garlicky, and delicious.', price: 109, type: 'veg', img: 'https://images.unsplash.com/photo-1627485895394-4299b9587844?q=80&w=400&auto=format&fit=crop'},
+                    { id: 'dom_taco_mexicana', name: 'Taco Mexicana Veg', description: 'A crispy taco filled with veggies & cheese.', price: 139, type: 'veg', img: 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?q=80&w=400&auto=format&fit=crop'},
+                    { id: 'dom_chicken_wings', name: 'Roasted Chicken Wings', description: 'Juicy chicken wings roasted to perfection.', price: 199, type: 'non-veg', img: 'https://images.unsplash.com/photo-1542365889-1dbde5b3ff35?q=80&w=400&auto=format&fit=crop'},
+                ],
+                "Desserts & Beverages": [
+                    { id: 'dom_choco_lava', name: 'Choco Lava Cake', description: 'Gooey, chocolatey, and decadent.', price: 99, type: 'veg', img: 'https://images.unsplash.com/photo-1610441334026-0c64e84c4a6a?q=80&w=400&auto=format&fit=crop'},
+                    { id: 'dom_coke', name: 'Coke (500ml)', description: 'The perfect companion for your pizza.', price: 60, type: 'veg', img: 'https://images.unsplash.com/photo-1622483767028-3f66f32a64ba?q=80&w=400&auto=format&fit=crop'}
+                ]
+            }
+        },
+        {
+            id: 'pizzahut_waddepally', name: 'Pizza Hut', location: 'Waddepally, Hanamkonda', rating: 4.1, coords: {x: 80, y: 40},
+            image: 'https://images.unsplash.com/photo-1615807713086-af38f0d61417?q=80&w=400&auto=format&fit=crop',
+            menu: { "Pizzas": [], "Sides": [], "Desserts & Beverages": [] }
+        },
+        {
+            id: 'us_pizza_naimnagar', name: 'U.S.Pizza', location: 'Naimnagar, Hanamkonda', rating: 3.9, coords: {x: 120, y: 180},
+            image: 'https://images.unsplash.com/photo-1574100004472-e536d3b6bacc?q=80&w=400&auto=format&fit=crop',
+            menu: { "Pizzas": [], "Sides": [], "Desserts & Beverages": [] }
+        }
+    ];
+    const DELIVERY_LOCATIONS = [
+        { name: 'Nakkalagutta, Hanamkonda', coords: { x: 250, y: 50 } },
+        { name: 'Kazipet', coords: { x: 260, y: 80 } },
+        { name: 'Waddepally, Hanamkonda', coords: { x: 230, y: 30 } },
+        { name: 'Subedari, Hanamkonda', coords: { x: 240, y: 100 } },
+        { name: 'Warangal Fort', coords: { x: 200, y: 150 } },
+        { name: 'NIT Warangal', coords: { x: 270, y: 90 } },
+        { name: 'Public Gardens, Hanamkonda', coords: { x: 245, y: 65 } },
+    ];
+    const TOPPINGS = [ { name: 'Mushrooms', price: 50, type: 'veg' }, { name: 'Onions', price: 40, type: 'veg' }, { name: 'Olives', price: 60, type: 'veg' },
+        { name: 'Jalapenos', price: 55, type: 'veg' }, { name: 'Paneer', price: 70, type: 'veg' },
+        { name: 'Pepperoni', price: 80, type: 'non-veg' }, { name: 'Bacon', price: 100, type: 'non-veg' }, { name: 'Sausage', price: 90, type: 'non-veg' }];
+    const ADDONS = [ { name: 'Extra Cheese', price: 100 }, { name: 'Cheese Burst Crust', price: 150 } ];
+
+    let cart = [];
+    let currentRestaurant = null;
+    let currentBuilder = null;
+    let currentDeliveryLocation = DELIVERY_LOCATIONS[0];
+
+    // --- Core App Logic ---
+    document.addEventListener('DOMContentLoaded', () => {
+        const mainContent = document.getElementById('main-content');
+        const sidebar = document.getElementById('sidebar');
+        const cartItemsContainer = document.getElementById('cart-items');
+        const emptyCartMsg = document.getElementById('empty-cart-message');
+        const billDetailsContainer = document.getElementById('bill-details');
+        const placeOrderBtn = document.getElementById('place-order-button');
+        const geminiSuggestBtn = document.getElementById('gemini-suggest-btn');
+        const geminiSuggestionContainer = document.getElementById('gemini-suggestion-container');
+        const orderFromContainer = document.getElementById('order-from');
+        const searchBar = document.getElementById('search-bar');
+        const shareModal = document.getElementById('share-modal');
+        const shareModalContent = document.getElementById('share-modal-content');
+        const shareTextContainer = document.getElementById('share-text-container');
+        const locationModal = document.getElementById('location-modal');
+        const locationModalContent = document.getElementById('location-modal-content');
+        const locationList = document.getElementById('location-list');
+        const deliveryLocationBtn = document.getElementById('delivery-location');
+        
+        // --- Product & Builder Classes ---
+        class MenuItem { 
+            constructor(itemData, restaurantId, isPizza = false) {
+                this.id = `${itemData.id}_${Date.now()}`;
+                this.name = itemData.name;
+                this.finalPrice = itemData.price;
+                this.type = itemData.type;
+                this.restaurantId = restaurantId;
+                this.isPizza = isPizza;
+            }
+            getCartItemName() {
+                return this.name;
+            }
+        }
+        class Pizza extends MenuItem { 
+            constructor(basePizza, restaurantId) {
+                super(basePizza, restaurantId, true);
+                this.baseId = basePizza.id;
+                this.basePrice = basePizza.price;
+                this.size = 'Medium';
+                this.toppings = [];
+                this.addons = [];
+            }
+            getCartItemName() {
+                let custom = [];
+                if (this.toppings.length > 0) custom.push(...this.toppings.map(t => t.name));
+                if (this.addons.length > 0) custom.push(...this.addons.map(a => a.name));
+                let name = `${this.name} (${this.size})`;
+                if (custom.length > 0) name += ` w/ ${custom.join(', ')}`;
+                return name;
+            }
+        }
+        class PizzaBuilder { 
+            constructor(basePizza, restaurantId) { this.pizza = new Pizza(basePizza, restaurantId); }
+            setSize(size) { this.pizza.size = size; this.recalculatePrice(); return this; }
+            toggleTopping(topping) {
+                const index = this.pizza.toppings.findIndex(t => t.name === topping.name);
+                if (index > -1) this.pizza.toppings.splice(index, 1); else this.pizza.toppings.push(topping);
+                this.recalculatePrice(); return this;
+            }
+            toggleAddon(addon) {
+                const index = this.pizza.addons.findIndex(a => a.name === addon.name);
+                if (index > -1) this.pizza.addons.splice(index, 1); else this.pizza.addons.push(addon);
+                this.recalculatePrice(); return this;
+            }
+            recalculatePrice() {
+                let price = this.pizza.basePrice;
+                const sizeEl = document.querySelector('#size-options .selected');
+                if(sizeEl) price += parseFloat(sizeEl.dataset.priceMod);
+                price += this.pizza.toppings.reduce((sum, t) => sum + t.price, 0);
+                price += this.pizza.addons.reduce((sum, a) => sum + a.price, 0);
+                this.pizza.finalPrice = price;
+            }
+            build() { return this.pizza; }
+        }
+
+        // --- Gemini API & Helper Functions ---
+        const callGeminiAPI = async (userQuery) => { /* ... */ };
+        async function getMealSuggestions() { /* ... */ }
+        async function findRestaurantsWithGemini(locationQuery) { /* ... */ }
+        async function getAIToppingSuggestions() { /* ... */ }
+        async function generateOrderUpdate() { /* ... */ }
+        
+        function toggleModal(modal, content, show) {
+            if (show) {
+                modal.classList.remove('hidden');
+                setTimeout(() => { 
+                    modal.classList.remove('opacity-0');
+                    content.classList.remove('scale-95', 'opacity-0');
+                }, 10);
+            } else {
+                modal.classList.add('opacity-0');
+                content.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => modal.classList.add('hidden'), 300);
+            }
+        }
+
+        // --- View Rendering & Logic ---
+        const vegIcon = (type) => type === 'veg' ? `🟢` : `🔴`;
+        function updateBill() { /* ... */ }
+        function renderCart() { /* ... */ }
+        
+        function populateLocations() {
+            locationList.innerHTML = DELIVERY_LOCATIONS.map(loc => `
+                <li class="p-3 hover:bg-gray-100 rounded-lg cursor-pointer" data-name="${loc.name}">
+                    <p class="font-semibold">${loc.name.split(',')[0]}</p>
+                    <p class="text-sm text-gray-500">${loc.name.split(',')[1] || 'Warangal'}</p>
+                </li>
+            `).join('');
+        }
+        
+        function renderView(viewName, data) {
+            let html = '';
+            // ... (existing view rendering logic is correct)
+             if (viewName === 'RESTAURANT_LIST') {
+                html = `
+                    <div class="mb-8 rounded-2xl shadow-xl overflow-hidden">
+                        <img src="https://images.unsplash.com/photo-1513104890138-7c749659a591?q=80&w=1470&auto=format&fit=crop" alt="Delicious Pizza Banner" class="w-full h-64 object-cover">
+                    </div>
+                    <h2 class="text-3xl font-bold mb-6">Restaurants in Warangal</h2><div class="space-y-6">${(data || RESTAURANTS).map(r => `
+                    <div class="restaurant-card bg-white p-4 rounded-xl shadow-lg flex items-center gap-6 transition-transform hover:scale-105 cursor-pointer" data-id="${r.id}">
+                        <div class="w-32 h-24 bg-gray-200 rounded-lg bg-cover bg-center" style="background-image: url('${r.image || `https://images.unsplash.com/photo-1552590635-27c2c2128abf?q=80&w=400&auto=format&fit=crop`}')"></div>
+                        <div class="flex-grow">
+                            <h3 class="text-xl font-bold">${r.name}</h3>
+                            <p class="text-sm text-gray-600 my-1">📍 ${r.location}</p>
+                            <p class="font-semibold text-yellow-500">⭐ ${r.rating}</p>
+                        </div>
+                    </div>`).join('')}</div>`;
+            } 
+            else if (viewName === 'RESTAURANT_MENU') {
+                let menuHtml = '';
+                for (const category in data.menu) {
+                    menuHtml += `<h3 class="text-2xl font-bold mt-8 mb-4">${category}</h3><div class="space-y-6">`;
+                    menuHtml += data.menu[category].map(item => {
+                        return `
+                        <div class="bg-white p-4 rounded-xl shadow-lg flex items-center gap-4">
+                            <img src="${item.img}" alt="${item.name}" class="w-24 h-24 object-cover rounded-lg">
+                            <div class="flex-grow">
+                                <h3 class="text-xl font-bold flex items-center gap-2">${vegIcon(item.type)} ${item.name}</h3>
+                                <p class="text-sm text-gray-600 my-1">${item.description}</p>
+                                <p class="font-semibold">₹${item.price}</p>
+                            </div>
+                            <button class="add-btn text-sm font-bold bg-red-50 text-red-600 px-6 py-2 rounded-lg hover:bg-red-100" data-id="${item.id}" data-category="${category}">Add</button>
+                        </div>`;
+                    }).join('');
+                    menuHtml += `</div>`;
+                }
+                html = `
+                    <button id="back-to-restaurants-btn" class="font-semibold text-gray-600 hover:text-red-600 mb-4">← Back to Restaurants</button>
+                    <h2 class="text-3xl font-bold mb-2">${data.name}</h2>
+                    <p class="text-gray-600 mb-6">📍 ${data.location}</p>
+                    ${menuHtml}`;
+            }
+            else if (viewName === 'CUSTOMIZE') {
+                 currentBuilder = new PizzaBuilder(data.pizza, data.restaurant.id);
+                 const pizza = currentBuilder.build();
+                 html = `
+                    <div class="bg-white p-6 rounded-2xl shadow-xl">
+                        <button id="back-to-menu-btn" class="font-semibold text-gray-600 hover:text-red-600 mb-4">← Back to Menu</button>
+                        <h2 class="text-3xl font-bold flex items-center gap-2">${vegIcon(pizza.type)} ${pizza.name}</h2>
+                        <hr class="my-6">
+                        <h3 class="text-xl font-bold mb-4">Size</h3>
+                        <div id="size-options" class="grid grid-cols-3 gap-4 mb-6">
+                            <label class="option-card p-4 border rounded-lg cursor-pointer text-center" data-value="Small" data-price-mod="-50"><input type="radio" name="size" class="hidden"> Small (-₹50)</label>
+                            <label class="option-card p-4 border rounded-lg cursor-pointer text-center selected" data-value="Medium" data-price-mod="0"><input type="radio" name="size" class="hidden" checked> Medium (Base)</label>
+                            <label class="option-card p-4 border rounded-lg cursor-pointer text-center" data-value="Large" data-price-mod="100"><input type="radio" name="size" class="hidden"> Large (+₹100)</label>
+                        </div>
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-bold">Toppings</h3>
+                            <button id="suggest-toppings-btn" class="text-sm font-semibold text-purple-600 bg-purple-100 px-3 py-1 rounded-lg hover:bg-purple-200">✨ Suggest Toppings</button>
+                        </div>
+                        <div id="toppings-options" class="space-y-3 mb-6">${TOPPINGS.map(t => `<label class="flex items-center justify-between p-3 border rounded-lg cursor-pointer"><input type="checkbox" data-name="${t.name}" class="hidden"><div>${vegIcon(t.type)} <span class="ml-2">${t.name}</span></div><div class="flex items-center gap-4"><span class="font-semibold text-sm">+₹${t.price}</span><span class="checkbox-custom w-5 h-5 border-2 rounded"></span></div></label>`).join('')}</div>
+                        <h3 class="text-xl font-bold mt-6 mb-4">Add-ons</h3>
+                        <div id="addons-options" class="space-y-3 mb-6">
+                            ${ADDONS.map(a => `<label class="flex items-center justify-between p-3 border rounded-lg cursor-pointer"><input type="checkbox" data-name="${a.name}" class="hidden"><div>🧀 <span class="ml-2">${a.name}</span></div><div class="flex items-center gap-4"><span class="font-semibold text-sm">+₹${a.price}</span><span class="checkbox-custom w-5 h-5 border-2 rounded"></span></div></label>`).join('')}
+                        </div>
+                        <div class="mt-8 border-t pt-6 flex justify-between items-center">
+                            <span class="text-xl font-bold">Item Total: <span id="custom-item-total">₹${pizza.finalPrice}</span></span>
+                            <button id="add-custom-to-cart-btn" class="bg-red-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-red-700">Add to Cart</button>
+                        </div>
+                    </div>`;
+            } else if (viewName === 'TRACKING') {
+                const restaurantCoords = currentRestaurant.coords || {x: 50, y: 150};
+                const homeCoords = currentDeliveryLocation.coords;
+                html = `
+                <div class="bg-white p-6 rounded-2xl shadow-xl">
+                    <h2 class="text-3xl font-bold">Order Status</h2>
+                    <p class="text-gray-600">From ${currentRestaurant.name} to ${currentDeliveryLocation.name}</p>
+                    <div class="mt-8 flex flex-col md:flex-row gap-8">
+                        <div class="w-full md:w-1/2 h-64 md:h-auto">
+                           <svg id="map-svg" class="w-full h-full rounded-lg shadow-md bg-gray-200" viewBox="0 0 300 200">
+                              <path id="delivery-path" d="M ${restaurantCoords.x} ${restaurantCoords.y} Q 150 180 ${homeCoords.x} ${homeCoords.y}" stroke="#a5b4fc" stroke-width="4" fill="none" stroke-dasharray="8 8"/>
+                              <circle cx="${restaurantCoords.x}" cy="${restaurantCoords.y}" r="8" fill="#16a34a"><title>${currentRestaurant.name}</title></circle>
+                              <circle cx="${homeCoords.x}" cy="${homeCoords.y}" r="8" fill="#ef4444"><title>Your Location</title></circle>
+                              <circle id="delivery-marker" cx="${restaurantCoords.x}" cy="${restaurantCoords.y}" r="6" fill="#4f46e5"><title>Delivery Rider</title></circle>
+                           </svg>
+                        </div>
+                        <div class="w-full md:w-1/2">
+                           <h3 class="font-bold text-lg mb-4">Live Updates</h3>
+                            <div class="relative pl-5">
+                                <div class="timeline-line"></div>
+                                <div id="status-1" class="timeline-item relative mb-6"><div class="timeline-dot absolute w-5 h-5 bg-gray-300 rounded-full -left-2 top-1 border-4 border-white"></div><div class="timeline-content text-gray-500"><p>Order Placed</p><p class="text-xs"></p></div></div>
+                                <div id="status-2" class="timeline-item relative mb-6"><div class="timeline-dot absolute w-5 h-5 bg-gray-300 rounded-full -left-2 top-1 border-4 border-white"></div><div class="timeline-content text-gray-500">Preparing Food</div></div>
+                                <div id="status-3" class="timeline-item relative"><div class="timeline-dot absolute w-5 h-5 bg-gray-300 rounded-full -left-2 top-1 border-4 border-white"></div><div class="timeline-content text-gray-500">Out for Delivery</div></div>
+                            </div>
+                            <div class="mt-8 border-t pt-6">
+                                <button id="generate-update-btn" class="w-full mb-3 bg-blue-500 text-white font-bold py-3 rounded-lg hover:bg-blue-600">✨ Generate Order Update</button>
+                                <button class="w-full bg-green-500 text-white font-bold py-3 rounded-lg hover:bg-green-600">📞 Call Delivery Person</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            }
+             mainContent.innerHTML = html;
+        }
+        
+        function startOrderSimulation() { /* ... */ }
+        function animateDelivery() { /* ... */ }
+
+        // --- Event Listeners ---
+        mainContent.addEventListener('click', e => { 
+            if (e.target.id === 'suggest-toppings-btn') { getAIToppingSuggestions(); }
+            if (e.target.id === 'generate-update-btn') { generateOrderUpdate(); }
+            const restaurantCard = e.target.closest('.restaurant-card');
+            const addBtn = e.target.closest('.add-btn');
+
+            if (restaurantCard) {
+                const restaurantId = restaurantCard.dataset.id;
+                currentRestaurant = RESTAURANTS.find(r => r.id === restaurantId) || (window.aiRestaurants && window.aiRestaurants.find(r => r.id === restaurantId));
+                renderView('RESTAURANT_MENU', currentRestaurant);
+            } else if (addBtn) {
+                const itemId = addBtn.dataset.id;
+                const category = addBtn.dataset.category;
+
+                if(cart.length > 0 && cart[0].restaurantId !== currentRestaurant.id) {
+                    if(confirm("Your cart contains items from another restaurant. Would you like to clear the cart and add this item?")) {
+                        cart = [];
+                        renderCart();
+                    } else { return; }
+                }
+                
+                const itemData = currentRestaurant.menu[category].find(p => p.id === itemId);
+
+                if (itemData.customizable) {
+                    renderView('CUSTOMIZE', { pizza: itemData, restaurant: currentRestaurant });
+                } else {
+                    cart.push(new MenuItem(itemData, currentRestaurant.id));
+                    renderCart();
+                }
+            } else if (e.target.id === 'back-to-restaurants-btn') {
+                renderView('RESTAURANT_LIST', RESTAURANTS);
+            } else if (e.target.id === 'back-to-menu-btn') {
+                renderView('RESTAURANT_MENU', currentRestaurant);
+            } else if (e.target.closest('#toppings-options label')) {
+                 const label = e.target.closest('#toppings-options label');
+                 const checkbox = label.querySelector('input[type="checkbox"]');
+                 if (!e.target.matches('button')) {
+                    checkbox.checked = !checkbox.checked;
+                    label.classList.toggle('selected');
+                    const name = checkbox.dataset.name;
+                    const topping = TOPPINGS.find(t => t.name === name);
+                    if (topping) currentBuilder.toggleTopping(topping);
+                    document.getElementById('custom-item-total').textContent = `₹${currentBuilder.build().finalPrice}`;
+                 }
+            } else if (e.target.closest('#addons-options label')) {
+                const label = e.target.closest('#addons-options label');
+                const checkbox = label.querySelector('input[type="checkbox"]');
+                checkbox.checked = !checkbox.checked;
+                label.classList.toggle('selected');
+                const name = checkbox.dataset.name;
+                const addon = ADDONS.find(a => a.name === name);
+                if (addon) currentBuilder.toggleAddon(addon);
+                document.getElementById('custom-item-total').textContent = `₹${currentBuilder.build().finalPrice}`;
+            } else if (e.target.closest('#size-options label')) {
+                 const label = e.target.closest('#size-options label');
+                 document.querySelectorAll('#size-options label').forEach(l => l.classList.remove('selected'));
+                 label.classList.add('selected');
+                 currentBuilder.setSize(label.dataset.value);
+                 document.getElementById('custom-item-total').textContent = `₹${currentBuilder.build().finalPrice}`;
+            } else if (e.target.id === 'add-custom-to-cart-btn') {
+                cart.push(currentBuilder.build());
+                renderCart();
+                renderView('RESTAURANT_MENU', currentRestaurant);
+            }
+        });
+        sidebar.addEventListener('click', e => { 
+            if (e.target.closest('.remove-from-cart-btn')) {
+                cart.splice(parseInt(e.target.closest('.remove-from-cart-btn').dataset.index), 1);
+                renderCart();
+            } else if(e.target.closest('#delivery-options label') || e.target.closest('#payment-options label')) {
+                 const group = e.target.closest('#delivery-options') || e.target.closest('#payment-options');
+                 group.querySelectorAll('label').forEach(l => l.classList.remove('selected'));
+                 e.target.closest('label').classList.add('selected');
+                 updateBill();
+            }
+        });
+        placeOrderBtn.addEventListener('click', () => { 
+             if (cart.length === 0) return;
+             renderView('TRACKING');
+             sidebar.classList.add('hidden');
+             startOrderSimulation();
+        });
+        searchBar.addEventListener('keyup', e => { /* ... */ });
+        geminiSuggestBtn.addEventListener('click', getMealSuggestions);
+        document.getElementById('home-button').addEventListener('click', () => { /* ... */ });
+        document.getElementById('nav-home').addEventListener('click', e => { /* ... */ });
+        
+        // Modal Listeners
+        document.getElementById('close-share-modal-btn').addEventListener('click', () => toggleModal(shareModal, shareModalContent, false));
+        document.getElementById('copy-share-text-btn').addEventListener('click', () => { /* ... */ });
+        
+        deliveryLocationBtn.addEventListener('click', () => toggleModal(locationModal, locationModalContent, true));
+        document.getElementById('close-location-modal-btn').addEventListener('click', () => toggleModal(locationModal, locationModalContent, false));
+        locationList.addEventListener('click', e => {
+            const locItem = e.target.closest('li');
+            if (locItem) {
+                const locName = locItem.dataset.name;
+                currentDeliveryLocation = DELIVERY_LOCATIONS.find(l => l.name === locName);
+                document.getElementById('location-text').textContent = currentDeliveryLocation.name.split(',')[0];
+                toggleModal(locationModal, locationModalContent, false);
+            }
+        });
+
+
+        // Initial Render
+        populateLocations();
+        renderView('RESTAURANT_LIST', RESTAURANTS);
+        renderCart();
+    });
+    </script>
+</body>
+</html>
+
+
